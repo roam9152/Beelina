@@ -49,3 +49,8 @@ export const toDateSelector = createSelector(
   selectFeature,
   (state) => state.toDate
 );
+
+export const paymentStatusSelector = createSelector(
+  selectFeature,
+  (state) => state.paymentStatus
+);

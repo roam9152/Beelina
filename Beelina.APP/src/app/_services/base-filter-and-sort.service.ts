@@ -9,6 +9,7 @@ import {
 import { Store } from '@ngrx/store';
 
 import { SortOrderOptionsEnum } from '../_enum/sort-order-options.enum';
+import { PaymentStatusEnum } from '../_enum/payment-status.enum';
 import { AppStateInterface } from '../_interfaces/app-state.interface';
 
 import * as TransactionDateStoreActions from '../transaction-history/store/actions';
@@ -150,6 +151,7 @@ export class BaseFilterAndSortService<T> {
         dateStart: data.dateFrom,
         dateEnd: data.dateTo,
         sortOrder: data.sortOrder,
+        paymentStatus: PaymentStatusEnum.All, // Default value for backward compatibility
       })
     );
   }

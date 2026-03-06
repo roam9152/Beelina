@@ -5,6 +5,7 @@ import { TransactionDateInformation } from 'src/app/_services/transaction.servic
 import { ITransactionDateState } from '../types/transaction-dates-state.interface';
 import * as TransactionDateActions from './actions';
 import { SortOrderOptionsEnum } from 'src/app/_enum/sort-order-options.enum';
+import { PaymentStatusEnum } from 'src/app/_enum/payment-status.enum';
 
 export const initialState: ITransactionDateState = {
   isLoading: false,
@@ -16,6 +17,7 @@ export const initialState: ITransactionDateState = {
   fromDate: null,
   toDate: null,
   sortOrder: SortOrderOptionsEnum.DESCENDING,
+  paymentStatus: PaymentStatusEnum.All,
   error: null,
 };
 
@@ -59,6 +61,7 @@ export const reducers = createReducer(
       sortOrder: action.sortOrder,
       fromDate: action.dateStart,
       toDate: action.dateEnd,
+      paymentStatus: action.paymentStatus,
     })
   ),
   on(

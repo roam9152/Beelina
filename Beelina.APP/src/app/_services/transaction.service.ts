@@ -12,6 +12,7 @@ import { OutletTypeHelper } from '../_helpers/outlet-type.helper';
 import { ProductTransaction, ProductTransactionQuantityHistory, Transaction } from '../_models/transaction';
 
 import { TransactionStatusEnum } from '../_enum/transaction-status.enum';
+import { PaymentStatusEnum } from '../_enum/payment-status.enum';
 
 import { DateFormatter } from '../_helpers/formatters/date-formatter.helper';
 import { NumberFormatter } from '../_helpers/formatters/number-formatter.helper';
@@ -89,6 +90,7 @@ const GET_TRANSACTION_DATES = gql`
     $transactionStatus: TransactionStatusEnum!
     $fromDate: String
     $toDate: String,
+    $paymentStatus: PaymentStatusEnum,
     $limit: Int!
   ) {
     transactionDates(
@@ -97,6 +99,7 @@ const GET_TRANSACTION_DATES = gql`
       transactionStatus: $transactionStatus
       fromDate: $fromDate
       toDate: $toDate,
+      paymentStatus: $paymentStatus,
       first: $limit
     ) {
       edges {
@@ -1084,7 +1087,7 @@ export class TransactionService {
       );
   }
 
-  getTransactioDates(transactionStatus: TransactionStatusEnum, cursor: string, limit: number, sortOrder: SortOrderOptionsEnum, fromDate: string, toDate: string) {
+  getTransactioDates(transactionStatus: TransactionStatusEnum, cursor: string, limit: number, sortOrder: SortOrderOptionsEnum, fromDate: string, toDate: string, paymentStatus?: PaymentStatusEnum) {
 
     return this.apollo
       .watchQuery({
@@ -1096,6 +1099,7 @@ export class TransactionService {
           transactionStatus,
           fromDate,
           toDate,
+          paymentStatus,
         },
       })
       .valueChanges.pipe(
@@ -1122,11 +1126,24 @@ export class TransactionService {
               })
             );
 
-            if (transactionDates) {
+            // Apply client-side filtering for payment status if backend doesn't support it
+            let filteredTransactionDates = transactionDates;
+            if (paymentStatus && paymentStatus !== PaymentStatusEnum.All) {
+              filteredTransactionDates = transactionDates.filter(td => {
+                if (paymentStatus === PaymentStatusEnum.Paid) {
+                  return td.allTransactionsPaid === true;
+                } else if (paymentStatus === PaymentStatusEnum.Unpaid) {
+                  return td.allTransactionsPaid === false;
+                }
+                return true;
+              });
+            }
+
+            if (filteredTransactionDates) {
               return {
                 endCursor,
                 hasNextPage,
-                transactionDates,
+                transactionDates: filteredTransactionDates,
               };
             }
 

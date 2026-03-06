@@ -10,6 +10,7 @@ import {
   TransactionService,
 } from 'src/app/_services/transaction.service';
 import { TransactionStatusEnum } from 'src/app/_enum/transaction-status.enum';
+import { PaymentStatusEnum } from 'src/app/_enum/payment-status.enum';
 import { LocalOrdersDbService } from 'src/app/_services/local-db/local-orders-db.service';
 
 import {
@@ -17,6 +18,7 @@ import {
   fromDateSelector,
   sortOrderSelector,
   toDateSelector,
+  paymentStatusSelector,
 } from '../../transaction-history/store/selectors';
 import { SortOrderOptionsEnum } from 'src/app/_enum/sort-order-options.enum';
 import { AppStateInterface } from 'src/app/_interfaces/app-state.interface';
@@ -41,7 +43,8 @@ export class TransactionDatesEffects {
           limit = 100,
           sortOrder = SortOrderOptionsEnum.DESCENDING,
           fromDate = null,
-          toDate = null;
+          toDate = null,
+          paymentStatus = PaymentStatusEnum.All;
 
         this.store
           .select(endCursorSelector)
@@ -63,8 +66,13 @@ export class TransactionDatesEffects {
           .pipe(take(1))
           .subscribe((currentToDate) => (toDate = currentToDate));
 
+        this.store
+          .select(paymentStatusSelector)
+          .pipe(take(1))
+          .subscribe((currentPaymentStatus) => (paymentStatus = currentPaymentStatus));
+
         if (!this.networkService.isOnline.value) {
-          return from(this.localOrdersDbService.getMyLocalOrderDates(action.transactionStatus, limit, sortOrder, fromDate, toDate)).pipe(
+          return from(this.localOrdersDbService.getMyLocalOrderDates(action.transactionStatus, limit, sortOrder, fromDate, toDate, paymentStatus)).pipe(
             map(
               (data: {
                 endCursor: string;
@@ -83,7 +91,7 @@ export class TransactionDatesEffects {
         }
 
         return this.transactionService
-          .getTransactioDates(action.transactionStatus, cursor, limit, sortOrder, fromDate, toDate)
+          .getTransactioDates(action.transactionStatus, cursor, limit, sortOrder, fromDate, toDate, paymentStatus)
           .pipe(
             map(
               (data: {
@@ -95,7 +103,7 @@ export class TransactionDatesEffects {
               }
             ),
             switchMap((resultFromServer) => {
-              return from(this.localOrdersDbService.getMyLocalOrderDates(action.transactionStatus, limit, sortOrder, fromDate, toDate)).pipe(
+              return from(this.localOrdersDbService.getMyLocalOrderDates(action.transactionStatus, limit, sortOrder, fromDate, toDate, paymentStatus)).pipe(
                 map(
                   (data: {
                     endCursor: string;

@@ -15,7 +15,7 @@ import { isLoadingSelector } from '../transaction-history/store/selectors';
 
 import { TransactionStatusEnum } from '../_enum/transaction-status.enum';
 import { IFilterAndSortTransactions } from '../_interfaces/services/ifilter-and-sort-transactions.interface';
-import { BaseFilterAndSortService } from '../_services/base-filter-and-sort.service';
+import { TransactionHistoryFilterService } from '../_services/transaction-history-filter.service';
 import { TransactionDateInformation } from '../_services/transaction.service';
 
 @Component({
@@ -30,7 +30,7 @@ export class TransactionHistoryComponent
   private router = inject(Router);
   private store = inject(Store<AppStateInterface>);
   private bottomSheet = inject(MatBottomSheet);
-  private filterAndSortTransactionsService = inject(BaseFilterAndSortService<TransactionDateInformation>);
+  private filterAndSortTransactionsService = inject(TransactionHistoryFilterService);
 
   constructor() {
     super();
@@ -40,10 +40,11 @@ export class TransactionHistoryComponent
 
     this.filterAndSortTransactionsService
       .setBottomSheet(this.bottomSheet)
-      .setProps(
+      .setPropsWithPaymentStatus(
         'dateStart_transactionHistoryPage',
         'dateEnd_transactionHistoryPage',
-        'sortOrder_transactionHistoryPage'
+        'sortOrder_transactionHistoryPage',
+        'paymentStatus_transactionHistoryPage'
       )
       .setDataSource(
         new TransactionDatesDataSource(

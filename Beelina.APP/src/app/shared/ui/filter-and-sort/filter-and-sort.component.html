@@ -23,6 +23,22 @@
       <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
       <mat-date-range-picker #picker></mat-date-range-picker>
     </mat-form-field>
+    
+    <mat-form-field appearance="fill">
+      <mat-label>{{
+        "ORDER_TRANSACTIONS_PAGE.TRANSACTION_FILTER_DIALOG.FORM_CONTROL_SECTION.PAYMENT_STATUS_CONTROL.LABEL" |
+        translate }}:</mat-label>
+      <mat-select formControlName="paymentStatus">
+        <mat-option [value]="PaymentStatusEnum.All">{{ "GENERAL_TEXTS.ALL" | translate }}</mat-option>
+        <mat-option [value]="PaymentStatusEnum.Paid">{{
+          "ORDER_TRANSACTIONS_PAGE.TRANSACTION_FILTER_DIALOG.FORM_CONTROL_SECTION.PAYMENT_STATUS_CONTROL.DROPDOWN_OPTION_CONTROL.PAID_OPTION"
+          | translate }}</mat-option>
+        <mat-option [value]="PaymentStatusEnum.Unpaid">{{
+          "ORDER_TRANSACTIONS_PAGE.TRANSACTION_FILTER_DIALOG.FORM_CONTROL_SECTION.PAYMENT_STATUS_CONTROL.DROPDOWN_OPTION_CONTROL.UNPAID_OPTION"
+          | translate }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+    
     <mat-form-field appearance="fill">
       <mat-label
         >{{

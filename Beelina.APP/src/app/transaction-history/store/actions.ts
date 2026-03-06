@@ -2,6 +2,7 @@ import { createAction, props } from '@ngrx/store';
 
 import { SortOrderOptionsEnum } from 'src/app/_enum/sort-order-options.enum';
 import { TransactionStatusEnum } from 'src/app/_enum/transaction-status.enum';
+import { PaymentStatusEnum } from 'src/app/_enum/payment-status.enum';
 
 import { TransactionDateInformation } from 'src/app/_services/transaction.service';
 
@@ -25,6 +26,7 @@ export const setSortAndfilterTransactionDatesAction = createAction(
     dateStart: string;
     dateEnd: string;
     sortOrder: SortOrderOptionsEnum;
+    paymentStatus: PaymentStatusEnum;
   }>()
 );
 

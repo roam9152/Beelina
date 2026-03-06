@@ -6,6 +6,7 @@ import {
 } from '@angular/material/bottom-sheet';
 
 import { SortOrderOptionsEnum } from 'src/app/_enum/sort-order-options.enum';
+import { PaymentStatusEnum } from 'src/app/_enum/payment-status.enum';
 import moment from 'moment';
 
 @Component({
@@ -22,13 +23,17 @@ export class FilterAndSortComponent {
     fromDate: string;
     toDate: string;
     sortOrder: SortOrderOptionsEnum;
+    paymentStatus: PaymentStatusEnum;
   }>(MAT_BOTTOM_SHEET_DATA);
+
+  PaymentStatusEnum = PaymentStatusEnum;
 
   constructor() {
     this._filterForm = this.formBuilder.group({
       dateFrom: [this.data.fromDate],
       dateTo: [this.data.toDate],
       sortOrder: [this.data.sortOrder],
+      paymentStatus: [this.data.paymentStatus || PaymentStatusEnum.All],
     });
   }
 
@@ -37,6 +42,7 @@ export class FilterAndSortComponent {
       dateFrom: null,
       dateTo: null,
       sortOrder: SortOrderOptionsEnum.DESCENDING,
+      paymentStatus: PaymentStatusEnum.All,
     });
   }
 
@@ -48,6 +54,7 @@ export class FilterAndSortComponent {
     const dateFromValue = this._filterForm.get('dateFrom').value;
     const dateToValue = this._filterForm.get('dateTo').value;
     const sortOrderValue = this._filterForm.get('sortOrder').value;
+    const paymentStatusValue = this._filterForm.get('paymentStatus').value;
 
     const dateFrom = dateFromValue
       ? moment(dateFromValue).format('YYYY-MM-DD')
@@ -56,7 +63,8 @@ export class FilterAndSortComponent {
       ? moment(dateToValue).format('YYYY-MM-DD')
       : null;
     const sortOrder = sortOrderValue ?? SortOrderOptionsEnum.DESCENDING;
-    this._bottomSheetRef.dismiss({ dateFrom, dateTo, sortOrder });
+    const paymentStatus = paymentStatusValue ?? PaymentStatusEnum.All;
+    this._bottomSheetRef.dismiss({ dateFrom, dateTo, sortOrder, paymentStatus });
   }
 
   get filterForm(): FormGroup {
