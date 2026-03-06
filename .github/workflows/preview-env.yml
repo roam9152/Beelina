@@ -1,0 +1,113 @@
+name: Preview Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [Development]
+
+jobs:
+  preview:
+    # Only run for feature branches (created by Copilot agent or custom Beelina agents)
+    if: startsWith(github.head_ref, 'Features/')
+    name: Build & smoke-test preview stack
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Unit tests (fast, no Docker needed — uses SQLite in-memory) ──────────
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore & build solution
+        run: dotnet build --configuration Release --no-restore || dotnet restore && dotnet build --configuration Release
+
+      - name: Run unit tests
+        id: unit_tests
+        run: dotnet test Beelina.UnitTest --no-build --configuration Release --verbosity normal
+        continue-on-error: true
+
+      # ── Full stack spin-up ─────────────────────────────────────────────────
+      - name: Start Docker Compose stack
+        env:
+          DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
+          API_SECRET_TOKEN: ${{ secrets.PREVIEW_API_SECRET_TOKEN }}
+        run: |
+          docker compose up --build -d
+          echo "Waiting for all services to be healthy..."
+
+      - name: Wait for API to be ready
+        id: api_health
+        run: |
+          echo "Polling http://localhost:8080/health ..."
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "API is healthy after $((i * 5))s"
+              echo "healthy=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            echo "  attempt $i/40 — retrying in 5s..."
+            sleep 5
+          done
+          echo "healthy=false" >> $GITHUB_OUTPUT
+          docker compose logs api
+          exit 1
+        continue-on-error: true
+
+      - name: Smoke-test Angular app
+        id: app_health
+        if: steps.api_health.outputs.healthy == 'true'
+        run: |
+          STATUS=$(curl -o /dev/null -w "%{http_code}" -sf http://localhost:4200 || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "healthy=true" >> $GITHUB_OUTPUT
+          else
+            echo "Angular app returned HTTP $STATUS"
+            echo "healthy=false" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      # ── Post results as PR comment ──────────────────────────────────────────
+      - name: Post PR comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const unitTests   = '${{ steps.unit_tests.outcome }}';
+            const apiHealth   = '${{ steps.api_health.outputs.healthy }}';
+            const appHealth   = '${{ steps.app_health.outputs.healthy }}';
+
+            const icon = (ok) => ok === 'true' || ok === 'success' ? '✅' : '❌';
+
+            const body = [
+              `## 🧪 Preview Environment Results`,
+              ``,
+              `| Check | Status |`,
+              `|-------|--------|`,
+              `| Unit Tests (\`dotnet test\`) | ${icon(unitTests)} ${unitTests} |`,
+              `| API Health (\`/health\`) | ${icon(apiHealth)} ${apiHealth === 'true' ? 'healthy' : 'failed'} |`,
+              `| Angular App (HTTP 200) | ${icon(appHealth)} ${appHealth === 'true' ? 'healthy' : 'failed / skipped'} |`,
+              ``,
+              `> ℹ️ The preview environment runs inside the GitHub Actions runner and is not publicly accessible.`,
+              `> It validates that the full stack builds and starts correctly on isolated infrastructure.`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
+
+      # ── Always tear down ───────────────────────────────────────────────────
+      - name: Tear down Docker Compose stack
+        if: always()
+        run: docker compose down -v --remove-orphans

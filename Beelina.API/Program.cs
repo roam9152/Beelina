@@ -9,6 +9,7 @@ var services = builder.Services;
 
 // Add services to the container.
 services.AddControllers();
+services.AddHealthChecks();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 services.AddEndpointsApiExplorer();
@@ -73,6 +74,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHealthChecks("/health");
 
 app.MapGraphQL("/graphql");
 

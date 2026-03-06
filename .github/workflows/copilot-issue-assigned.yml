@@ -1,0 +1,42 @@
+name: Acknowledge Copilot Issue Assignment
+
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  acknowledge:
+    # Only react when the issue is assigned to GitHub Copilot's coding agent
+    if: |
+      github.event.assignee.login == 'copilot' ||
+      contains(github.event.assignee.login, 'copilot')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Post acknowledgement comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.payload.issue.number;
+            const assignee = context.payload.assignee.login;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                `👋 Issue assigned to **@${assignee}**.`,
+                ``,
+                `Once Copilot opens a PR from a \`Features/\` branch, a full isolated preview environment will automatically spin up:`,
+                ``,
+                `| Service | Details |`,
+                `|---------|---------|`,
+                `| 🗄️ SQL Server | Isolated container (SQL Server 2022 Developer) |`,
+                `| ⚙️ .NET API | Built from source, connected to preview DB |`,
+                `| 🌐 Angular App | Built from source, served via nginx |`,
+                ``,
+                `Build status and smoke test results will be posted as a comment on the PR.`,
+              ].join('\n')
+            });
