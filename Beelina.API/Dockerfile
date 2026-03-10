@@ -11,7 +11,6 @@ RUN dotnet restore "Beelina.API/Beelina.API.csproj"
 COPY . .
 RUN dotnet publish "Beelina.API/Beelina.API.csproj" \
     --configuration Release \
-    --no-restore \
     --output /app/publish
 
 # Runtime stage
