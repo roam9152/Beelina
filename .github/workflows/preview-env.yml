@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
+      API_SECRET_TOKEN: ${{ secrets.PREVIEW_API_SECRET_TOKEN }}
 
     steps:
       - name: Checkout
@@ -27,8 +30,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore & build solution
-        run: dotnet build --configuration Release --no-restore || dotnet restore && dotnet build --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run unit tests
         id: unit_tests
@@ -37,9 +43,6 @@ jobs:
 
       # ── Full stack spin-up ─────────────────────────────────────────────────
       - name: Start Docker Compose stack
-        env:
-          DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
-          API_SECRET_TOKEN: ${{ secrets.PREVIEW_API_SECRET_TOKEN }}
         run: |
           docker compose up --build -d
           echo "Waiting for all services to be healthy..."
@@ -60,6 +63,52 @@ jobs:
           echo "healthy=false" >> $GITHUB_OUTPUT
           docker compose logs api
           exit 1
+        continue-on-error: true
+
+      # ── Database init + seed ───────────────────────────────────────────────
+      - name: Initialize & seed databases
+        id: db_init
+        if: steps.api_health.outputs.healthy == 'true'
+        run: |
+          set -e
+
+          echo "→ Migrating system DB..."
+          curl -sf -X POST http://localhost:8080/api/systemdbmanager/syncDatabase
+
+          echo "→ Migrating developer client DB..."
+          curl -sf -X POST http://localhost:8080/api/clientdbmanager/syncDatabase
+
+          echo "→ Seeding default GeneralInformation row in system DB..."
+          docker compose exec -T db /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "$DB_SA_PASSWORD" -No \
+            -Q "IF NOT EXISTS (SELECT 1 FROM dbBeelinaSYSSQL.dbo.GeneralInformations) \
+                INSERT INTO dbBeelinaSYSSQL.dbo.GeneralInformations \
+                (SystemUpdateStatus, IsActive, IsDelete, DateCreated, DateUpdated, DateDeleted, DateDeactivated) \
+                VALUES (0, 1, 0, GETUTCDATE(), GETUTCDATE(), '1900-01-01', '1900-01-01')"
+
+          echo "→ Seeding developer client DB with preview test user..."
+          curl -sf -X POST http://localhost:8080/api/clientdbmanager/populateDatabase \
+            -H "Content-Type: application/json" \
+            -d '{"userAccountDto":{"firstName":"Preview","middleName":"","lastName":"User","gender":0,"emailAddress":"preview@test.com"},"clientDto":{"name":"Preview Client","type":0}}'
+
+          echo "All database init steps completed."
+        continue-on-error: true
+
+      # ── Login smoke test (GraphQL) ─────────────────────────────────────────
+      - name: Login smoke test
+        id: login_test
+        if: steps.db_init.outcome == 'success'
+        run: |
+          RESPONSE=$(curl -sf -X POST http://localhost:8080/graphql \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { login(loginInput: { username: \"prus\", password: \"Starta123\" }) { accessToken } }"}')
+          echo "Login response: $RESPONSE"
+          if echo "$RESPONSE" | grep -q '"accessToken"'; then
+            echo "Login succeeded."
+          else
+            echo "Login failed — accessToken not found in response."
+            exit 1
+          fi
         continue-on-error: true
 
       - name: Smoke-test Angular app
@@ -83,6 +132,8 @@ jobs:
           script: |
             const unitTests   = '${{ steps.unit_tests.outcome }}';
             const apiHealth   = '${{ steps.api_health.outputs.healthy }}';
+            const dbInit      = '${{ steps.db_init.outcome }}';
+            const loginTest   = '${{ steps.login_test.outcome }}';
             const appHealth   = '${{ steps.app_health.outputs.healthy }}';
 
             const icon = (ok) => ok === 'true' || ok === 'success' ? '✅' : '❌';
@@ -94,6 +145,8 @@ jobs:
               `|-------|--------|`,
               `| Unit Tests (\`dotnet test\`) | ${icon(unitTests)} ${unitTests} |`,
               `| API Health (\`/health\`) | ${icon(apiHealth)} ${apiHealth === 'true' ? 'healthy' : 'failed'} |`,
+              `| DB Init & Seed | ${icon(dbInit)} ${dbInit} |`,
+              `| Login Smoke Test (GraphQL) | ${icon(loginTest)} ${loginTest} |`,
               `| Angular App (HTTP 200) | ${icon(appHealth)} ${appHealth === 'true' ? 'healthy' : 'failed / skipped'} |`,
               ``,
               `> ℹ️ The preview environment runs inside the GitHub Actions runner and is not publicly accessible.`,
