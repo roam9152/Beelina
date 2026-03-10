@@ -13,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+    env:
+      DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
+      API_SECRET_TOKEN: ${{ secrets.PREVIEW_API_SECRET_TOKEN }}
 
     steps:
       - name: Checkout
@@ -40,9 +43,6 @@ jobs:
 
       # ── Full stack spin-up ─────────────────────────────────────────────────
       - name: Start Docker Compose stack
-        env:
-          DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
-          API_SECRET_TOKEN: ${{ secrets.PREVIEW_API_SECRET_TOKEN }}
         run: |
           docker compose up --build -d
           echo "Waiting for all services to be healthy..."
@@ -69,8 +69,6 @@ jobs:
       - name: Initialize & seed databases
         id: db_init
         if: steps.api_health.outputs.healthy == 'true'
-        env:
-          DB_SA_PASSWORD: ${{ secrets.PREVIEW_DB_SA_PASSWORD }}
         run: |
           set -e
 
