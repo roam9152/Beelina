@@ -27,8 +27,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore & build solution
-        run: dotnet build --configuration Release --no-restore || dotnet restore && dotnet build --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run unit tests
         id: unit_tests
